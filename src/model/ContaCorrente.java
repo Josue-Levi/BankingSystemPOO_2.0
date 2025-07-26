@@ -39,6 +39,46 @@ public class ContaCorrente extends Conta {
     public void setLimiteChequeEspecial(double limiteChequeEspecial) {
         this.limiteChequeEspecial = limiteChequeEspecial;
     }
+
+    //sobrescrição método de saque
+    @Override
+    public void sacar(double valor){
+        cobrarTaxaManutencaoMensal();
+        if(valor <= 0){
+            System.out.println("Valor de saque inválido!\n");
+        } else {
+            if(TRANSACOES_GRATUITAS_MES <= contadorTransacoesMes){
+                this.saldo -= TAXA_POR_TRANSACAO_EXTRA;
+            }
+            if((this.saldo + this.limiteChequeEspecial >= valor)){
+                if(this.saldo >= valor){
+                    this.saldo -= valor;
+                    System.out.printf("Saldo de R$ %.2f realizado na conta %s. Novo saldo: R$ %.2f\n", valor, getNumeroDaConta(), this.saldo);
+                    this.contadorTransacoesMes += 1;
+                } else {
+                    double valorUsadoDoLimite = valor - this.saldo;
+                    this.saldo = 0;
+                    this.limiteChequeEspecial -= valorUsadoDoLimite;
+                    System.out.printf("Saque de R$ %.2f realizado (parte do limite de cheque especial). Saldo atual: R$ %.2f. Limite restante: R$ %.2f.\n", valor, this.saldo, this.limiteChequeEspecial);
+                    this.contadorTransacoesMes += 1;
+                }
+                if(TRANSACOES_GRATUITAS_MES <= contadorTransacoesMes){
+                    System.out.println("Você possui 0 transações gratuítas restantes.\n");
+                } else {
+                    System.out.printf("Você possui %d transações gratuítas restantes.\n", TRANSACOES_GRATUITAS_MES - contadorTransacoesMes);
+                }
+            } else {
+                System.out.println("Saldo e limite do cheque especial insuficientes. Não é possível realizar o saque.\n");
+            }
+        }    
+    }
+
+    //sobrescrição método de depósito
+    @Override
+    public void depositar(double valor){
+        super.depositar(valor);
+        cobrarTaxaManutencaoMensal();
+    }
     
     // sobrescrição do metodo de gerar extrato
     @Override

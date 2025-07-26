@@ -24,6 +24,20 @@ public class ContaPoupanca extends Conta {
         System.out.println("Tipo de Conta: Poupança");
     }
 
+    //sobrescrição método de saque
+    @Override
+    public void sacar(double valor){
+        aplicarRendimento();
+        super.sacar(valor);
+    }
+
+    //sobrescrição método de depósito
+    @Override
+    public void depositar(double valor){
+        aplicarRendimento();
+        super.depositar(valor);
+    }
+    
     // sobrescrição do metodo gerar extrato.
     @Override
     public void gerarExtrato() {

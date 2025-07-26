@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter;
 
 // classe abstrata que serve como modelo para as classes ContaCorrete.java e ContaPoupança.java
 public abstract class Conta {
-    // realiza a formatação da data
+    // realiza a formatação da data (sem serialização)
     private transient static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
     public static DateTimeFormatter getFormatter() {
