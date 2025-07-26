@@ -28,5 +28,36 @@
     "Complemento": "Baixo",
     "CEP": "60550-071",
     "Senha": "josue123"
+  },
+  {
+    "CPF": "081.371.520-24",
+    "Nascimento": "10052005",
+    "NomePessoa": "Josue Levi Lima Oliver",
+    "Email": "josuelevi1@gmail.com",
+    "Telefone": "85991690526",
+    "Estado": "Ceara",
+    "Cidade": "Fortaleza",
+    "Bairro": "Jangurussu",
+    "Rua": "Timbauba",
+    "Numero": 899,
+    "Complemento": "Altos",
+    "CEP": "60440-835",
+    "Senha": "josue123"
+  },
+  {
+    "titularType": "PessoaFisica",
+    "CPF": "908.357.190-49",
+    "Nascimento": "11042006",
+    "NomePessoa": "Sergio Henrique Leal Lobato",
+    "Email": "sergioleal1@gmail.com",
+    "Telefone": "85981857900",
+    "Estado": "Ceara",
+    "Cidade": "Fortaleza",
+    "Bairro": "Oit�o Preto",
+    "Rua": "Macaco Loco",
+    "Numero": 777,
+    "Complemento": "Altos",
+    "CEP": "60440-440",
+    "Senha": "sergio123"
   }
 ]

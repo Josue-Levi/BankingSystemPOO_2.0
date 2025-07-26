@@ -17,26 +17,28 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.InputMismatchException;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
-    // metodo global
     private static Scanner scanner = new Scanner(System.in);
-    // variaveis global
     private static final String FILE_PF = "src/clients/CadastrosFisica.json";
     private static final String FILE_PJ = "src/clients/CadastrosJuridico.json";
     private static final String FILE_CONTAS = "src/data/contas.json";
 
-    // criação de arrays para armazenamento de dados
-    private static List<PessoaFisica> clientesPF = new ArrayList<>();
-    private static List<PessoaJuridica> clientesPJ = new ArrayList<>();
-    private static List<Conta> contas = new ArrayList<>();
+    private static List<PessoaFisica> clientesPF = Collections.synchronizedList(new ArrayList<>());
+    private static List<PessoaJuridica> clientesPJ = Collections.synchronizedList(new ArrayList<>());
+    private static List<Conta> contas = Collections.synchronizedList(new ArrayList<>());
 
+    private static final ExecutorService executor = Executors.newFixedThreadPool(4);
     private static Gson gson = criarGson();
 
-    // configura e cria um objeto customizado do Gson para lidar com tipos de dados complexos e herença.
     private static Gson criarGson() {
         RuntimeTypeAdapterFactory<PessoaFisica> titularAdapterFactory = RuntimeTypeAdapterFactory
                 .of(PessoaFisica.class, "titularType")
@@ -55,12 +57,11 @@ public class Main {
                 .registerTypeAdapterFactory(titularAdapterFactory)
                 .create();
     }
-
-    //metodo principal, utilizado para controlar o loop do menu principal.
+    
     public static void main(String[] args) {
         new File("src/clients").mkdirs();
         new File("src/data").mkdirs();
-        carregarDados(); // carrega dados salvos de execuções anteriores.
+        carregarDados();
 
         int opcaoPrincipal;
         do {
@@ -75,7 +76,8 @@ public class Main {
                     break;
                 case 0:
                     System.out.println("Saindo do simulador... Adeus.");
-                    salvarDados();
+                    salvarDadosAsync();
+                    desligarExecutor();
                     break;
                 default:
                     System.out.println("Opção inválida. Digite uma das opções listadas.");
@@ -85,119 +87,139 @@ public class Main {
         scanner.close();
     }
 
-    // carrega os dados dos .Json para as listas, e inclui uma logica para migra os dados de formatos antigos.
     private static void carregarDados() {
-        System.out.println("Carregando dados existentes...");
+        System.out.println("Carregando dados existentes em paralelo...");
+
+        CompletableFuture<Boolean> futurePF = carregarClientesPFAsync();
+        CompletableFuture<Boolean> futurePJ = carregarClientesPJAsync();
+        CompletableFuture<Boolean> futureContas = carregarContasAsync();
+
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(futurePF, futurePJ, futureContas);
+
+        try {
+            allFutures.get();
+        } catch (Exception e) {
+            System.err.println("Erro ao esperar o carregamento dos dados: " + e.getMessage());
+        }
+        
         boolean dadosMigrados = false;
-
-        // carregar pessoas físicas com lógica de migração
-        dadosMigrados |= carregarClientesPF();
-
-        // carregar pessoas jurídicas com lógica de migração
-        dadosMigrados |= carregarClientesPJ();
-
-        // carregar Contas com lógica de migração
-        dadosMigrados |= carregarContas();
+        try {
+           dadosMigrados = futurePF.get() || futurePJ.get() || futureContas.get();
+        } catch (Exception e) {
+            System.err.println("Erro ao obter resultado da migração: " + e.getMessage());
+        }
 
         System.out.println("Dados carregados com sucesso.");
 
-        // se algum dado foi migrado, salva os arquivos no novo formato imediatamente.
         if (dadosMigrados) {
             System.out.println("Migração de dados concluída. Salvando arquivos no novo formato...");
-            salvarDados();
+            salvarDadosAsync();
         }
     }
 
-    // os 3 metodos abaixo é utilizado para ler os arquivos Json e adiciona o campo tipo para compatibilidade com versõesa antigas,
-    private static boolean carregarClientesPF() {
-        File file = new File(FILE_PF);
-        if (!file.exists() || file.length() == 0) return false;
+    private static CompletableFuture<Boolean> carregarClientesPFAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            File file = new File(FILE_PF);
+            if (!file.exists() || file.length() == 0) return false;
 
-        boolean migrado = false;
-        try (FileReader reader = new FileReader(file)) {
-            JsonElement element = JsonParser.parseReader(reader);
-            if (element.isJsonArray()) {
-                for (JsonElement item : element.getAsJsonArray()) {
-                    JsonObject obj = item.getAsJsonObject();
-                    if (!obj.has("titularType")) {
-                        obj.addProperty("titularType", "PessoaFisica");
-                        migrado = true;
-                    }
-                }
-            }
-            clientesPF = gson.fromJson(element, new TypeToken<List<PessoaFisica>>() {}.getType());
-            if (clientesPF == null) clientesPF = new ArrayList<>();
-        } catch (Exception e) {
-            System.err.println("Erro ao carregar ou migrar clientes PF: " + e.getMessage());
-            clientesPF = new ArrayList<>();
-        }
-        return migrado;
-    }
-    
-    private static boolean carregarClientesPJ() {
-        File file = new File(FILE_PJ);
-        if (!file.exists() || file.length() == 0) return false;
-
-        boolean migrado = false;
-        try (FileReader reader = new FileReader(file)) {
-            JsonElement element = JsonParser.parseReader(reader);
-            if (element.isJsonArray()) {
-                for (JsonElement item : element.getAsJsonArray()) {
-                    JsonObject obj = item.getAsJsonObject();
-                    if (!obj.has("titularType")) {
-                        obj.addProperty("titularType", "PessoaJuridica");
-                        migrado = true;
-                    }
-                }
-            }
-            clientesPJ = gson.fromJson(element, new TypeToken<List<PessoaJuridica>>() {}.getType());
-            if (clientesPJ == null) clientesPJ = new ArrayList<>();
-        } catch (Exception e) {
-            System.err.println("Erro ao carregar ou migrar clientes PJ: " + e.getMessage());
-            clientesPJ = new ArrayList<>();
-        }
-        return migrado;
-    }
-
-    private static boolean carregarContas() {
-        File file = new File(FILE_CONTAS);
-        if (!file.exists() || file.length() == 0) return false;
-
-        boolean migrado = false;
-        try (FileReader reader = new FileReader(file)) {
-            JsonElement element = JsonParser.parseReader(reader);
-            if (element.isJsonArray()) {
-                for (JsonElement item : element.getAsJsonArray()) {
-                    JsonObject contaObj = item.getAsJsonObject();
-                    if (contaObj.has("titular") && contaObj.get("titular").isJsonObject()) {
-                        JsonObject titularObj = contaObj.getAsJsonObject("titular");
-                        if (!titularObj.has("titularType")) {
+            boolean migrado = false;
+            try (FileReader reader = new FileReader(file)) {
+                JsonElement element = JsonParser.parseReader(reader);
+                
+                if (element.isJsonArray()) {
+                    for (JsonElement item : element.getAsJsonArray()) {
+                        JsonObject obj = item.getAsJsonObject();
+                        if (!obj.has("titularType")) {
+                            obj.addProperty("titularType", "PessoaFisica");
                             migrado = true;
-                            if (titularObj.has("CNPJ")) {
-                                titularObj.addProperty("titularType", "PessoaJuridica");
-                            } else {
-                                titularObj.addProperty("titularType", "PessoaFisica");
+                        }
+                    }
+                }
+                
+                clientesPF = gson.fromJson(element, new TypeToken<List<PessoaFisica>>() {}.getType());
+                if (clientesPF == null) clientesPF = Collections.synchronizedList(new ArrayList<>());
+            } catch (Exception e) {
+                System.err.println("Erro ao carregar ou migrar clientes PF: " + e.getMessage());
+                clientesPF = Collections.synchronizedList(new ArrayList<>());
+            }
+            System.out.println("-> Clientes PF carregados.");
+            return migrado;
+        }, executor);
+    }
+
+    private static CompletableFuture<Boolean> carregarClientesPJAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            File file = new File(FILE_PJ);
+            if (!file.exists() || file.length() == 0) return false;
+
+            boolean migrado = false;
+            try (FileReader reader = new FileReader(file)) {
+                JsonElement element = JsonParser.parseReader(reader);
+
+                if (element.isJsonArray()) {
+                    for (JsonElement item : element.getAsJsonArray()) {
+                        JsonObject obj = item.getAsJsonObject();
+                        if (!obj.has("titularType")) {
+                            obj.addProperty("titularType", "PessoaJuridica");
+                            migrado = true;
+                        }
+                    }
+                }
+
+                clientesPJ = gson.fromJson(element, new TypeToken<List<PessoaJuridica>>() {}.getType());
+                if (clientesPJ == null) clientesPJ = Collections.synchronizedList(new ArrayList<>());
+            } catch (Exception e) {
+                System.err.println("Erro ao carregar ou migrar clientes PJ: " + e.getMessage());
+                clientesPJ = Collections.synchronizedList(new ArrayList<>());
+            }
+            System.out.println("-> Clientes PJ carregados.");
+            return migrado;
+        }, executor);
+    }
+
+    private static CompletableFuture<Boolean> carregarContasAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            File file = new File(FILE_CONTAS);
+            if (!file.exists() || file.length() == 0) return false;
+
+            boolean migrado = false;
+            try (FileReader reader = new FileReader(file)) {
+                JsonElement element = JsonParser.parseReader(reader);
+
+                if (element.isJsonArray()) {
+                    for (JsonElement item : element.getAsJsonArray()) {
+                        JsonObject contaObj = item.getAsJsonObject();
+                        if (contaObj.has("titular") && contaObj.get("titular").isJsonObject()) {
+                            JsonObject titularObj = contaObj.getAsJsonObject("titular");
+                            if (!titularObj.has("titularType")) {
+                                migrado = true;
+                                if (titularObj.has("CNPJ")) {
+                                    titularObj.addProperty("titularType", "PessoaJuridica");
+                                } else {
+                                    titularObj.addProperty("titularType", "PessoaFisica");
+                                }
                             }
                         }
                     }
                 }
+
+                contas = gson.fromJson(element, new TypeToken<List<Conta>>() {}.getType());
+                if (contas == null) contas = Collections.synchronizedList(new ArrayList<>());
+            } catch (Exception e) {
+                System.err.println("Erro ao carregar ou migrar contas: " + e.getMessage());
+                contas = Collections.synchronizedList(new ArrayList<>());
             }
-            contas = gson.fromJson(element, new TypeToken<List<Conta>>() {}.getType());
-            if (contas == null) contas = new ArrayList<>();
-        } catch (Exception e) {
-            System.err.println("Erro ao carregar ou migrar contas: " + e.getMessage());
-            contas = new ArrayList<>();
-        }
-        return migrado;
+            System.out.println("-> Contas carregadas.");
+            return migrado;
+        }, executor);
     }
     
-   // metodos para exibir menus na tela do usuario.
     public static void exibirMenuPrincipal() {
         System.out.println("\n===== MENU PRINCIPAL =====");
         System.out.println("[1] Abrir Nova Conta");
         System.out.println("[2] Entrar em Conta Existente");
         System.out.println("[0] Sair");
-        System.out.print("Escolha uma opção: ");
+        System.out.println("Escolha uma opção: ");
     }
 
     public static void exibirTiposDeConta() {
@@ -212,7 +234,6 @@ public class Main {
         System.out.println("[2] Pessoa Jurídica");
     }
 
-    // ler o que o usuario inseriu para verificar se foi numero inteiro.
     public static int escolherOpcao() {
         try {
             int opcao = scanner.nextInt();
@@ -225,10 +246,8 @@ public class Main {
         }
     }
 
-    // acopla todo o processo de criação da conta, desde o cadastro até a conta ser criada.
     public static void criarConta() {
         Object titularConta = null;
-
         exibirTipoDeCliente();
         int tipoCliente = escolherOpcao();
 
@@ -245,7 +264,7 @@ public class Main {
             case 2:
                 PessoaJuridica pessoaJuridica = CadastroPessoaJuridica.CadastrarPessoaJuridica(scanner);
                 if (pessoaJuridica != null) {
-                     if (clientesPJ.stream().noneMatch(p -> p.equals(pessoaJuridica))) {
+                      if (clientesPJ.stream().noneMatch(p -> p.equals(pessoaJuridica))) {
                         clientesPJ.add(pessoaJuridica);
                     }
                     titularConta = pessoaJuridica;
@@ -293,14 +312,13 @@ public class Main {
             if (novaConta != null) {
                 contas.add(novaConta);
                 novaConta.gerarExtrato();
-                salvarDados();
+                salvarDadosAsync();
             }
         } else {
             System.out.println("Não foi possível criar a conta. Cliente inválido.\n");
         }
     }
 
-    // gerencia o processo de login do usuario.
     public static void entrarConta() {
         System.out.println("\n===== ENTRAR EM CONTA EXISTENTE =====");
         System.out.println("===== LOGIN CONTA =====");
@@ -346,7 +364,6 @@ public class Main {
         }
     }
 
-    // verifica os dados de login das listas de pesosas fisicas e juridicas.
     public static Object verificarLogin(String email, String senha) {
         for (PessoaFisica pf : clientesPF) {
             if (pf.getEmail().equalsIgnoreCase(email) && pf.getSenha().equals(senha)) {
@@ -361,7 +378,6 @@ public class Main {
         return null;
     }
 
-    // exibe o menu de operações para uma conta especifica quando o usuario logar.
     public static void menuOperacoes(Conta conta) {
         int opcaoOperacao;
         do {
@@ -372,7 +388,7 @@ public class Main {
             System.out.println("[3] Gerar Extrato");
             System.out.println("[4] Transferir para outra conta");
             System.out.println("[0] Voltar ao Menu Principal");
-            System.out.print("Escolha uma opção: ");
+            System.out.println("Escolha uma opção: ");
             opcaoOperacao = escolherOpcao();
 
             switch (opcaoOperacao) {
@@ -382,7 +398,7 @@ public class Main {
                         double valorDeposito = scanner.nextDouble();
                         scanner.nextLine();
                         conta.depositar(valorDeposito);
-                        salvarDados();
+                        salvarDadosAsync();
                     } catch (InputMismatchException e) {
                         System.out.println("Valor inválido. Por favor, digite um número.");
                         scanner.nextLine();
@@ -390,11 +406,11 @@ public class Main {
                     break;
                 case 2:
                     System.out.print("Digite o valor do saque: R$ ");
-                     try {
+                      try {
                         double valorSaque = scanner.nextDouble();
                         scanner.nextLine();
                         conta.sacar(valorSaque);
-                        salvarDados();
+                        salvarDadosAsync();
                     } catch (InputMismatchException e) {
                         System.out.println("Valor inválido. Por favor, digite um número.");
                         scanner.nextLine();
@@ -411,7 +427,7 @@ public class Main {
                         double valorTransferencia = scanner.nextDouble();
                         scanner.nextLine();
                         boolean sucesso = Transacao.transferir(contas, conta.getNumeroDaConta(), contaDestino, valorTransferencia);
-                        if (sucesso) salvarDados();
+                        if (sucesso) salvarDadosAsync();
                     } catch (InputMismatchException e) {
                         System.out.println("Valor inválido. Por favor, digite um número.");
                         scanner.nextLine();
@@ -427,24 +443,51 @@ public class Main {
         } while (opcaoOperacao != 0);
     }
 
-    // utilizado para salvar os dados nas listas nos arquivos .Json
-    private static void salvarDados() {
-        System.out.println("Salvando dados...");
-        try (FileWriter writer = new FileWriter(FILE_PF)) {
-            gson.toJson(clientesPF, writer);
+    private static void salvarListaEmArquivo(List<?> lista, String caminhoArquivo, String nomeLista) {
+        try (FileWriter writer = new FileWriter(caminhoArquivo)) {
+            gson.toJson(lista, writer);
+            System.out.println("-> " + nomeLista + " salvos.");
         } catch (IOException e) {
-            System.err.println("Erro ao salvar clientes PF: " + e.getMessage());
+            System.err.println("Erro ao salvar " + nomeLista + ": " + e.getMessage());
+            throw new RuntimeException(e);
         }
-        try (FileWriter writer = new FileWriter(FILE_PJ)) {
-            gson.toJson(clientesPJ, writer);
-        } catch (IOException e) {
-            System.err.println("Erro ao salvar clientes PJ: " + e.getMessage());
+    }
+
+    private static CompletableFuture<Void> salvarDadosAsync() {
+        System.out.println("Salvando todos os dados em segundo plano (paralelamente)...");
+
+        CompletableFuture<Void> futurePF = CompletableFuture.runAsync(
+            () -> salvarListaEmArquivo(clientesPF, FILE_PF, "Clientes PF"), executor);
+
+        CompletableFuture<Void> futurePJ = CompletableFuture.runAsync(
+            () -> salvarListaEmArquivo(clientesPJ, FILE_PJ, "Clientes PJ"), executor);
+
+        CompletableFuture<Void> futureContas = CompletableFuture.runAsync(
+            () -> salvarListaEmArquivo(contas, FILE_CONTAS, "Contas"), executor);
+
+        return CompletableFuture.allOf(futurePF, futurePJ, futureContas)
+            .whenComplete((res, ex) -> {
+                if (ex != null) {
+                    System.err.println("Ocorreu um erro geral durante o salvamento paralelo: " + ex.getCause().getMessage());
+                } else {
+                    System.out.println("Salvamento em segundo plano concluído com sucesso.");
+                }
+            });
+    }
+
+    private static void desligarExecutor() {
+        System.out.println("Encerrando threads de serviço...");
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+                if (!executor.awaitTermination(60, TimeUnit.SECONDS))
+                    System.err.println("Executor não pode ser encerrado.");
+            }
+        } catch (InterruptedException ie) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
-        try (FileWriter writer = new FileWriter(FILE_CONTAS)) {
-            gson.toJson(contas, writer);
-        } catch (IOException e) {
-            System.err.println("Erro ao salvar contas: " + e.getMessage());
-        }
-        System.out.println("Dados salvos.");
+        System.out.println("Serviços encerrados.");
     }
 }
