@@ -10,6 +10,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type; 
 import java.util.ArrayList;
+import java.util.InputMismatchException;
 import java.util.List;
 import java.util.Scanner;
 
@@ -59,10 +60,22 @@ public class CadastroPessoaFisica {
 
                 System.out.print("Rua: ");
                 String rua = scanner.nextLine();
-
-                System.out.print("Número: ");
-                int numero = scanner.nextInt();
-                scanner.nextLine();
+                
+                
+                int numero = 0;
+                boolean OK = false;
+                do{
+                        System.out.print("Número: ");
+                        try {
+                                numero = scanner.nextInt();
+                                scanner.nextLine();
+                                OK = true;
+                        } catch (InputMismatchException exception){
+                                System.out.println("Entrada inválida. Por favor, digite um número.\n");
+                                scanner.nextLine();
+                        }
+                } while (OK == false);
+                
 
                 System.out.print("Complemento: ");
                 String complemento = scanner.nextLine();
