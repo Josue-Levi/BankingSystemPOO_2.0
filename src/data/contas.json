@@ -1,0 +1,62 @@
+[
+  {
+    "tipoConta": "ContaCorrente",
+    "TAXA_MANUTENCAO_MENSAL": 10.0,
+    "TAXA_POR_TRANSACAO_EXTRA": 2.5,
+    "TRANSACOES_GRATUITAS_MES": 20,
+    "limiteChequeEspecial": 500.0,
+    "contadorTransacoesMes": 0,
+    "ultimoMesCobrancaTaxaManutencao": 7,
+    "ultimoAnoCobrancaTaxaManutencao": 2025,
+    "diaAniversarioCobranca": 7,
+    "titular": {
+      "CPF": "35754658869",
+      "Nascimento": "11/04/2006",
+      "NomePessoa": "Sergio Henrique Lobato Leal",
+      "Email": "sergioleal@gmail.com",
+      "Telefone": "85989928922",
+      "Estado": "Ceara",
+      "Cidade": "Fortaleza",
+      "Bairro": "Oit�o Preto",
+      "Rua": "Macaco Loco",
+      "Numero": 567,
+      "Complemento": "Altos",
+      "CEP": "6004-234",
+      "Senha": "sergio123"
+    },
+    "numeroDaConta": "15703084-7",
+    "agencia": "1430",
+    "codigoBanco": "345",
+    "codigoOperacao": "001",
+    "saldo": 0.0,
+    "dataCriacao": "07/07/2025 02:00:15"
+  },
+  {
+    "tipoConta": "ContaPoupanca",
+    "TAXA_RENDIMENTO_MENSAL": 0.005,
+    "diaAniversarioRendimento": 7,
+    "ultimoMesRendimentoAplicado": 7,
+    "ultimoAnoRendimentoAplicado": 2025,
+    "titular": {
+      "CPF": "48396021589",
+      "Nascimento": "10/05/2006",
+      "NomePessoa": "Josue Levi Oliveira Lima",
+      "Email": "josuelevi@gmail.com",
+      "Telefone": "85991690526",
+      "Estado": "Ceara",
+      "Cidade": "Fortaleza",
+      "Bairro": "Jangurussu",
+      "Rua": "Marechal Deodoro",
+      "Numero": 451,
+      "Complemento": "Baixo",
+      "CEP": "60550-071",
+      "Senha": "josue123"
+    },
+    "numeroDaConta": "40575349-6",
+    "agencia": "1430",
+    "codigoBanco": "345",
+    "codigoOperacao": "001",
+    "saldo": 0.0,
+    "dataCriacao": "07/07/2025 02:04:34"
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Executar Main.java",
+      "request": "launch",
+      "mainClass": "Main",
+      "projectName": "BankingSystemPOO",
+      "classPaths": [
+        "libs/gson-2.10.1.jar",
+        "bin"
+      ],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
